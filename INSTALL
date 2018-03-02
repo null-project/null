@@ -1,0 +1,9 @@
+Building Null
+
+See doc/readme-qt.rst for instructions on building Null-Qt,
+the intended-for-end-users, nice-graphical-interface, reference
+implementation of Null.
+
+See doc/build-*.txt for instructions on building nulld,
+the intended-for-services, no-graphical-interface, reference
+implementation of Null.
