@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2014 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -21,8 +21,7 @@
 #include <miniupnpc/upnperrors.h>
 #endif
 
-// Dump addresses to peers.dat every 15 minutes (900s)
-#define DUMP_ADDRESSES_INTERVAL 900
+#define DUMP_ADDRESSES_INTERVAL 150
 
 using namespace std;
 using namespace boost;
@@ -347,7 +346,7 @@ bool GetMyExternalIP(CNetAddr& ipRet)
     const char* pszKeyword;
 
     for (int nLookup = 0; nLookup <= 1; nLookup++)
-    for (int nHost = 1; nHost <= 2; nHost++)
+    for (int nHost = 1; nHost <= 1; nHost++)
     {
         // We should be phasing out our use of sites like these. If we need
         // replacements, we should ask for volunteers to put this simple
@@ -371,25 +370,6 @@ bool GetMyExternalIP(CNetAddr& ipRet)
                      "\r\n";
 
             pszKeyword = "Address:";
-        }
-        else if (nHost == 2)
-        {
-            addrConnect = CService("74.208.43.192", 80); // www.showmyip.com
-
-            if (nLookup == 1)
-            {
-                CService addrIP("www.showmyip.com", 80, true);
-                if (addrIP.IsValid())
-                    addrConnect = addrIP;
-            }
-
-            pszGet = "GET /simple/ HTTP/1.1\r\n"
-                     "Host: www.showmyip.com\r\n"
-                     "User-Agent: Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)\r\n"
-                     "Connection: close\r\n"
-                     "\r\n";
-
-            pszKeyword = NULL; // Returns just IP address
         }
 
         if (GetMyExternalIP2(addrConnect, pszGet, pszKeyword, ipRet))
@@ -612,7 +592,7 @@ void CNode::copyStats(CNodeStats &stats)
     X(nTimeConnected);
     X(addrName);
     X(nVersion);
-    X(strSubVer);
+    X(cleanSubVer);
     X(fInbound);
     X(nStartingHeight);
     X(nMisbehavior);
@@ -1244,6 +1224,7 @@ void ThreadDNSAddressSeed()
 
 unsigned int pnSeed[] =
 {
+
 };
 
 void DumpAddresses()
@@ -1549,6 +1530,9 @@ void ThreadMessageHandler()
         CNode* pnodeTrickle = NULL;
         if (!vNodesCopy.empty())
             pnodeTrickle = vNodesCopy[GetRand(vNodesCopy.size())];
+
+        bool fSleep = true;
+
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
             if (pnode->fDisconnect)
@@ -1558,8 +1542,18 @@ void ThreadMessageHandler()
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
                 if (lockRecv)
+                {
                     if (!ProcessMessages(pnode))
                         pnode->CloseSocketDisconnect();
+
+                    if (pnode->nSendSize < SendBufferSize())
+                    {
+                        if (!pnode->vRecvGetData.empty() || (!pnode->vRecvMsg.empty() && pnode->vRecvMsg[0].complete()))
+                        {
+                            fSleep = false;
+                        }
+                    }
+                }
             }
             boost::this_thread::interruption_point();
 
@@ -1578,7 +1572,8 @@ void ThreadMessageHandler()
                 pnode->Release();
         }
 
-        MilliSleep(100);
+        if (fSleep)
+            MilliSleep(100);
     }
 }
 
@@ -1643,7 +1638,11 @@ bool BindListenPort(const CService &addrBind, string& strError)
     // and enable it by default or not. Try to enable it, if possible.
     if (addrBind.IsIPv6()) {
 #ifdef IPV6_V6ONLY
+#ifdef WIN32
+        setsockopt(hListenSocket, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&nOne, sizeof(int));
+#else
         setsockopt(hListenSocket, IPPROTO_IPV6, IPV6_V6ONLY, (void*)&nOne, sizeof(int));
+#endif
 #endif
 #ifdef WIN32
         int nProtLevel = 10 /* PROTECTION_LEVEL_UNRESTRICTED */;
@@ -1784,6 +1783,7 @@ void StartNode(boost::thread_group& threadGroup)
 bool StopNode()
 {
     printf("StopNode()\n");
+    GenerateBitcoins(false, NULL);
     MapPort(false);
     nTransactionsUpdated++;
     if (semOutbound)

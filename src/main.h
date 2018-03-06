@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2014 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef BITCOIN_MAIN_H
@@ -143,7 +143,7 @@ bool LoadBlockIndex();
 /** Unload database information */
 void UnloadBlockIndex();
 /** Verify consistency of the block and coin databases */
-bool VerifyDB();
+bool VerifyDB(int nCheckLevel, int nCheckDepth);
 /** Print the loaded block tree */
 void PrintBlockTree();
 /** Find a block by height in the currently-connected chain */
@@ -154,8 +154,11 @@ bool ProcessMessages(CNode* pfrom);
 bool SendMessages(CNode* pto, bool fSendTrickle);
 /** Run an instance of the script checking thread */
 void ThreadScriptCheck();
+/** Run the miner threads */
+void GenerateBitcoins(bool fGenerate, CWallet* pwallet);
 /** Generate a new block, without valid proof-of-work */
-CBlockTemplate* CreateNewBlock(CReserveKey& reservekey);
+CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn);
+CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey);
 /** Modify the extranonce in a block */
 void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
 /** Do mining precalculation */
@@ -443,8 +446,6 @@ public:
 
     std::string ToString() const
     {
-        if (scriptPubKey.size() < 6)
-            return "CTxOut(error)";
         return strprintf("CTxOut(nValue=%"PRI64d".%08"PRI64d", scriptPubKey=%s)", nValue / COIN, nValue % COIN, scriptPubKey.ToString().substr(0,30).c_str());
     }
 
@@ -507,6 +508,11 @@ public:
     uint256 GetHash() const
     {
         return SerializeHash(*this);
+    }
+
+    uint256 GetNormalizedHash() const
+    {
+        return SignatureHash(CScript(), *this, 0, SIGHASH_ALL);
     }
 
     bool IsFinal(int nBlockHeight=0, int64 nBlockTime=0) const
@@ -619,6 +625,9 @@ public:
         return dPriority > COIN * 576 / 250;
     }
 
+// Apply the effects of this transaction on the UTXO set represented by view
+void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight, const uint256 &txhash);
+
     int64 GetMinFee(unsigned int nBlockSize=1, bool fAllowFree=true, enum GetMinFee_mode mode=GMF_BLOCK) const;
 
     friend bool operator==(const CTransaction& a, const CTransaction& b)
@@ -674,7 +683,7 @@ public:
     bool CheckTransaction(CValidationState &state) const;
 
     // Try to accept this transaction into the memory pool
-    bool AcceptToMemoryPool(CValidationState &state, bool fCheckInputs=true, bool fLimitFree = true, bool* pfMissingInputs=NULL);
+    bool AcceptToMemoryPool(CValidationState &state, bool fCheckInputs=true, bool fLimitFree = true, bool* pfMissingInputs=NULL, bool fRejectInsaneFee = false);
 
 protected:
     static const CTxOut &GetOutputFor(const CTxIn& input, CCoinsViewCache& mapInputs);
@@ -1111,6 +1120,8 @@ public:
 /** A transaction with a merkle branch linking it to the block chain. */
 class CMerkleTx : public CTransaction
 {
+private:
+    int GetDepthInMainChainINTERNAL(CBlockIndex* &pindexRet) const;
 public:
     uint256 hashBlock;
     std::vector<uint256> vMerkleBranch;
@@ -1149,9 +1160,14 @@ public:
 
 
     int SetMerkleBranch(const CBlock* pblock=NULL);
+
+    // Return depth of transaction in blockchain:
+    // -1  : not in blockchain, and not in memory pool (conflicted transaction)
+    //  0  : in memory pool, waiting to be included in a block
+    // >=1 : this many blocks deep in the main chain
     int GetDepthInMainChain(CBlockIndex* &pindexRet) const;
     int GetDepthInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet); }
-    bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
+    bool IsInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChainINTERNAL(pindexRet) > 0; }
     int GetBlocksToMaturity() const;
     bool AcceptToMemoryPool(bool fCheckInputs=true, bool fLimitFree=true);
 };
@@ -1471,8 +1487,8 @@ public:
             return error("%s() : deserialize or I/O error", __PRETTY_FUNCTION__);
         }
 
-        // Check the PoW but not for the genesis block
-        if (hashPrevBlock != 0 && !CheckProofOfWork(GetPoWHash(), nBits))
+        // Check the header
+        if (!CheckProofOfWork(GetPoWHash(), nBits))
             return error("CBlock::ReadFromDisk() : errors in block header");
 
         return true;
@@ -1901,13 +1917,15 @@ private:
         MODE_ERROR,   // run-time error
     } mode;
     int nDoS;
+    bool corruptionPossible;
 public:
-    CValidationState() : mode(MODE_VALID), nDoS(0) {}
-    bool DoS(int level, bool ret = false) {
+    CValidationState() : mode(MODE_VALID), nDoS(0), corruptionPossible(false) {}
+    bool DoS(int level, bool ret = false, bool corruptionIn = false) {
         if (mode == MODE_ERROR)
             return ret;
         nDoS += level;
         mode = MODE_INVALID;
+        corruptionPossible = corruptionIn;
         return ret;
     }
     bool Invalid(bool ret = false) {
@@ -1936,6 +1954,9 @@ public:
             return true;
         }
         return false;
+    }
+    bool CorruptionPossible() {
+        return corruptionPossible;
     }
 };
 
@@ -2086,7 +2107,7 @@ public:
     std::map<uint256, CTransaction> mapTx;
     std::map<COutPoint, CInPoint> mapNextTx;
 
-    bool accept(CValidationState &state, CTransaction &tx, bool fCheckInputs, bool fLimitFree, bool* pfMissingInputs);
+    bool accept(CValidationState &state, CTransaction &tx, bool fCheckInputs, bool fLimitFree, bool* pfMissingInputs, bool fRejectInsaneFee = false);
     bool addUnchecked(const uint256& hash, const CTransaction &tx);
     bool remove(const CTransaction &tx, bool fRecursive = false);
     bool removeConflicts(const CTransaction &tx);
@@ -2234,6 +2255,9 @@ struct CBlockTemplate
     std::vector<int64_t> vTxSigOps;
 };
 
+#if defined(_M_IX86) || defined(__i386__) || defined(__i386) || defined(_M_X64) || defined(__x86_64__) || defined(_M_AMD64)
+extern unsigned int cpuid_edx;
+#endif
 
 
 

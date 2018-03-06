@@ -3,17 +3,16 @@ Null integration/staging tree
 
 http://www.null.org
 
-Copyright (c) 2009-2013 Bitcoin Developers
-Copyright (c) 2011-2013 Litecoin Developers
-Copyright (c) 2018 Null Developers
+Copyright (c) 2009-2014 Bitcoin Developers
+Copyright (c) 2011-2014 Null Developers
 
 What is Null?
 ----------------
 
 Null is a lite version of Bitcoin using scrypt as a proof-of-work algorithm.
- - 45 sec. block targets
- - subsidy halves in 420k blocks
- - ~42 million total coins
+ - 2.5 minute block targets
+ - subsidy halves in 840k blocks (~4 years)
+ - ~84 million total coins
 
 The rest is the same as Bitcoin.
  - 50 coins per block
@@ -38,8 +37,7 @@ If it is a simple/trivial/non-controversial change, then one of the Null
 development team members simply pulls it.
 
 If it is a *more complicated or potentially controversial* change, then the patch
-submitter will be asked to start a discussion (if they haven't already) on the
-[mailing list](http://sourceforge.net/mailarchive/forum.php?forum_name=bitcoin-development).
+submitter will be asked to start a discussion with the devs and community.
 
 The patch will be accepted if there is broad consensus that it is a good thing.
 Developers should expect to rework and resubmit patches if the code doesn't
@@ -47,7 +45,7 @@ match the project's coding conventions (see `doc/coding.txt`) or are
 controversial.
 
 The `master` branch is regularly built and tested, but is not guaranteed to be
-completely stable. [Tags](https://github.com/bitcoin/bitcoin/tags) are created
+completely stable. [Tags](https://github.com/null-project/null/tags) are created
 regularly to indicate new official, stable release versions of Null.
 
 Testing

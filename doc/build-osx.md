@@ -111,7 +111,7 @@ Rerunning "openssl version" should now return the correct version.
 
 1. Clone the github tree to get the source code and go into the directory.
 
-        git clone git@github.com:null-project/null.git null
+        git clone https://github.com/null-project/null.git
         cd null
 
 2.  Modify source in order to pick up the `openssl` library.

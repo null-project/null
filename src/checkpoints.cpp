@@ -33,21 +33,27 @@ namespace Checkpoints
     //   (no blocks before with a timestamp after, none after with
     //    timestamp before)
     // + Contains no strange transactions
-    static MapCheckpoints mapCheckpoints;
+    static MapCheckpoints mapCheckpoints =
+        boost::assign::map_list_of
+        (  0, uint256("0x6b1aa59b777347125cde44a0c331115fe472f87fa1d7d2e23521f8cc055da7f2"))
+        ;
     static const CCheckpointData data = {
         &mapCheckpoints,
-        0, // * UNIX timestamp of last checkpoint block
+        1519107084, // * UNIX timestamp of last checkpoint block
         0,    // * total number of transactions between genesis and last checkpoint
                     //   (the tx=... number in the SetBestChain debug.log lines)
-        0.0     // * estimated number of transactions per day after checkpoint
+        1.0     // * estimated number of transactions per day after checkpoint
     };
 
-    static MapCheckpoints mapCheckpointsTestnet;
+    static MapCheckpoints mapCheckpointsTestnet =
+        boost::assign::map_list_of
+        (   0, uint256("0x812903a97df6d8f6daa082ba3d85d8473818dfaca8979c349401ee9723636839"))
+        ;
     static const CCheckpointData dataTestnet = {
         &mapCheckpointsTestnet,
+        1519107084,
         0,
-        0,
-        0.0
+        1.0
     };
 
     const CCheckpointData &Checkpoints() {
@@ -59,9 +65,6 @@ namespace Checkpoints
 
     bool CheckBlock(int nHeight, const uint256& hash)
     {
-        // Null has no checkpoints yet!
-        return true;
-        if (fTestNet) return true; // Testnet has no checkpoints
         if (!GetBoolArg("-checkpoints", true))
             return true;
 
@@ -105,9 +108,6 @@ namespace Checkpoints
 
     int GetTotalBlocksEstimate()
     {
-        // Null has no checkpoints yet!
-        return 0;
-        if (fTestNet) return 0; // Testnet has no checkpoints
         if (!GetBoolArg("-checkpoints", true))
             return 0;
 
@@ -118,9 +118,6 @@ namespace Checkpoints
 
     CBlockIndex* GetLastCheckpoint(const std::map<uint256, CBlockIndex*>& mapBlockIndex)
     {
-        // Null has no checkpoints yet!
-        return NULL;
-        if (fTestNet) return NULL; // Testnet has no checkpoints
         if (!GetBoolArg("-checkpoints", true))
             return NULL;
 
