@@ -35,7 +35,7 @@ CTxMemPool mempool;
 unsigned int nTransactionsUpdated = 0;
 
 map<uint256, CBlockIndex*> mapBlockIndex;
-uint256 hashGenesisBlock("0x6b1aa59b777347125cde44a0c331115fe472f87fa1d7d2e23521f8cc055da7f2");
+uint256 hashGenesisBlock("0x0113b8d92fa5764a49abfa6fe2b1d4eaf7654394bac4a4848510e170035bf30e");
 static CBigNum bnProofOfWorkLimit = CBigNum().SetCompact(520134678);
 CBlockIndex* pindexGenesisBlock = NULL;
 int nBestHeight = -1;
@@ -2744,7 +2744,7 @@ bool LoadBlockIndex()
         pchMessageStart[1] = 0xc1;
         pchMessageStart[2] = 0xb7;
         pchMessageStart[3] = 0xdc;
-        hashGenesisBlock = uint256("0x812903a97df6d8f6daa082ba3d85d8473818dfaca8979c349401ee9723636839");
+        hashGenesisBlock = uint256("0x62fa49ea334d746d6937d1540a0b2991c57e912337fc4dadb2834a8ab36d208b");
     }
 
     //
@@ -2783,7 +2783,7 @@ bool InitBlockIndex() {
         txNew.vout.resize(1);
         txNew.vin[0].scriptSig = CScript() << 486604799 << CBigNum(4) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
         txNew.vout[0].nValue = 5000000000;
-        txNew.vout[0].scriptPubKey = CScript() << ParseHex("24f238a19132c0acfd52bf5bd5b89a18067f4c6e6b705a28fae3e1a7da59aa256912256a7a5e3321f53b3068878f965bcad95b9f31f746fc01f48a81619441147e") << OP_CHECKSIG;
+        txNew.vout[0].scriptPubKey = CScript() << ParseHex("010000000000000000000000000000000000000000000000000000000000000000000000ab38074957fc92189c3ec2eb1b2fedd117371dca97aab289a22a94688b8fca7f0cbc8b5a16a0001f3586887d") << OP_CHECKSIG;
         CBlock block;
         block.vtx.push_back(txNew);
         block.hashPrevBlock = 0;
@@ -2791,12 +2791,55 @@ bool InitBlockIndex() {
         block.nVersion = 1;
         block.nTime    = 1519107084;
         block.nBits    = 520134678;
-        block.nNonce   = 2106061488;
+        block.nNonce   = 2106299962;
 
         if (fTestNet)
         {
             block.nTime    = 1519107084;
-            block.nNonce   = 321040028;
+            block.nNonce   = 321250504;
+        }
+
+if (false && block.GetHash() != hashGenesisBlock)
+        {
+            printf("Searching for genesis block...\n");
+            // This will figure out a valid hash and Nonce if you're
+            // creating a different genesis block:
+            uint256 hashTarget = CBigNum().SetCompact(block.nBits).getuint256();
+            uint256 thash;
+            char scratchpad[SCRYPT_SCRATCHPAD_SIZE];
+ 
+            loop
+            {
+#if defined(USE_SSE2)
+                // Detection would work, but in cases where we KNOW it always has SSE2,
+                // it is faster to use directly than to use a function pointer or conditional.
+#if defined(_M_X64) || defined(__x86_64__) || defined(_M_AMD64) || (defined(MAC_OSX) && defined(__i386__))
+                // Always SSE2: x86_64 or Intel MacOS X
+                scrypt_1024_1_1_256_sp_sse2(BEGIN(block.nVersion), BEGIN(thash), scratchpad);
+#else
+                // Detect SSE2: 32bit x86 Linux or Windows
+                scrypt_1024_1_1_256_sp(BEGIN(block.nVersion), BEGIN(thash), scratchpad);
+#endif
+#else
+                // Generic scrypt
+                scrypt_1024_1_1_256_sp_generic(BEGIN(block.nVersion), BEGIN(thash), scratchpad);
+#endif
+                if (thash <= hashTarget)
+                    break;
+                if ((block.nNonce & 0xFFF) == 0)
+                {
+                    printf("nonce %08X: hash = %s (target = %s)\n", block.nNonce, thash.ToString().c_str(), hashTarget.ToString().c_str());
+                }
+                ++block.nNonce;
+                if (block.nNonce == 0)
+                {
+                    printf("NONCE WRAPPED, incrementing time\n");
+                    ++block.nTime;
+                }
+            }
+            printf("block.nTime = %u \n", block.nTime);
+            printf("block.nNonce = %u \n", block.nNonce);
+            printf("block.GetHash = %s\n", block.GetHash().ToString().c_str());
         }
 
         //// debug print
@@ -2804,7 +2847,7 @@ bool InitBlockIndex() {
         printf("%s\n", hash.ToString().c_str());
         printf("%s\n", hashGenesisBlock.ToString().c_str());
         printf("%s\n", block.hashMerkleRoot.ToString().c_str());
-        assert(block.hashMerkleRoot == uint256("0xf6efc8aa5e2758e3ae97b3add52570117f9339fcc3b89fff4375adbc6cec50d0"));
+        assert(block.hashMerkleRoot == uint256("0x2f890fc9de9a2c4b017b904f1a88b72acfc11aac783ea57117461fb3718b0deb"));
         block.print();
         assert(hash == hashGenesisBlock);
 
