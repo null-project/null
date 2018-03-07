@@ -26,7 +26,6 @@ class CNode;
 class CBlockIndex;
 extern int nBestHeight;
 
-
 /** The maximum number of entries in an 'inv' protocol message */
 static const unsigned int MAX_INV_SZ = 50000;
 /** The maximum number of entries in mapAskFor */
