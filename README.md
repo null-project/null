@@ -1,25 +1,25 @@
 Null integration/staging tree
 ================================
 
-http://www.null.org
+http://www.null-project.github.io
 
 Copyright (c) 2009-2014 Bitcoin Developers
-Copyright (c) 2011-2014 Null Developers
+Copyright (c) 2011-2014 Litecoin Developers
+Copyright (c) Null Developers
 
 What is Null?
 ----------------
 
-Null is a lite version of Bitcoin using scrypt as a proof-of-work algorithm.
- - 2.5 minute block targets
- - subsidy halves in 840k blocks (~4 years)
- - ~84 million total coins
+Null is a fork of Litecoin using scrypt as a proof-of-work algorithm.
+ - 45 sec block targets
+ - subsidy halves in 420k blocks
+ - ~42 million total coins
 
-The rest is the same as Bitcoin.
- - 50 coins per block
- - 2016 blocks to retarget difficulty
+The rest is the same as Litecoin.
+
 
 For more information, as well as an immediately useable, binary version of
-the Null client sofware, see http://www.null.org.
+the Null client sofware, see http://www.null-project.github.io
 
 License
 -------
